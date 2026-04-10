@@ -39,7 +39,7 @@
     .card { width: 100%; max-width: 520px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.75rem; }
     .field { margin-bottom: 1.1rem; }
     .field label { display: block; font-size: 0.7rem; font-family: var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-    .field input, .field select { width: 100%; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.95rem; font-family: var(--font); transition: border-color 0.15s; appearance: none; }
+    .field input, .field select { width: 100%; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: #ffffff; font-size: 0.95rem; font-family: var(--font); transition: border-color 0.15s; appearance: none; }
     .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
     .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
     @media (max-width: 400px) { .row2 { grid-template-columns: 1fr; } }
@@ -60,7 +60,7 @@
     .reset-btn { display: inline-block; margin-top: 1.25rem; padding: 9px 20px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); font-size: 0.8rem; font-family: var(--mono); cursor: pointer; transition: all 0.15s; }
     .reset-btn:hover { color: var(--text); border-color: var(--muted); }
     .error-msg { font-size: 0.78rem; color: var(--danger); font-family: var(--mono); margin-top: 8px; display: none; }
-    .hint-text { font-size: 0.78rem; color: var(--muted); font-family: var(--mono); padding: 8px 0; }
+    .hint-text { font-size: 0.78rem; color: #ffffff; font-family: var(--mono); padding: 8px 0; }
 
     /* ── ADMIN OVERLAY ── */
     #admin-overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 100; overflow-y: auto; }
@@ -135,6 +135,16 @@
     .preset-btn { padding: 9px 14px; background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-size: 0.75rem; font-family: var(--mono); cursor: pointer; transition: all 0.15s; }
     .preset-btn:hover { color: var(--text); border-color: var(--muted); }
     .save-confirm { font-size: 0.75rem; color: var(--success); font-family: var(--mono); display: none; }
+  
+    .field input::placeholder { color: rgba(255,255,255,0.5); }
+    .field input[type="date"] { color-scheme: dark; color: #ffffff; }
+    .field input[type="date"]::-webkit-calendar-picker-indicator { 
+      filter: brightness(0) invert(1); 
+      cursor: pointer; 
+      opacity: 1;
+    }
+    input[type="date"]::-webkit-inner-spin-button { display: none; }
+    .field select option { color: #ffffff; background: var(--bg); }
   </style>
 </head>
 <body>
@@ -149,10 +159,10 @@
   <div class="card">
     <div id="booking-form">
       <div class="row2">
-        <div class="field"><label>Voornaam</label><input type="text" id="fname" placeholder="Omar" autocomplete="given-name" /></div>
-        <div class="field"><label>Achternaam</label><input type="text" id="lname" placeholder="El Amrani" autocomplete="family-name" /></div>
+        <div class="field"><label>Voornaam</label><input type="text" id="fname" placeholder="Bijv. Omar" autocomplete="given-name" /></div>
+        <div class="field"><label>Achternaam</label><input type="text" id="lname" placeholder="Bijv. El Amrani" autocomplete="family-name" /></div>
       </div>
-      <div class="field"><label>Telefoonnummer</label><input type="tel" id="phone" placeholder="+31 6 12 34 56 78" autocomplete="tel" /></div>
+      <div class="field"><label>Telefoonnummer</label><input type="tel" id="phone" placeholder="Bijv. +31 6 12 34 56 78" autocomplete="tel" /></div>
       <div class="field">
         <label>Type knipbeurt</label>
         <select id="service">
@@ -162,7 +172,7 @@
           <option value="fade">Fade</option>
         </select>
       </div>
-      <div class="field"><label>Datum</label><input type="date" id="bdate" /></div>
+      <div class="field"><label>Datum</label><input type="date" id="bdate" style="color-scheme:dark; color:#ffffff;" /></div>
       <div class="field">
         <label>Tijdstip</label>
         <div id="slot-container"><div class="hint-text">Kies eerst een datum</div></div>
@@ -299,8 +309,8 @@
     }
     return times;
   }
-  const ALL_TIMES = generateTimes(9, 0, 18, 0, SLOT_DURATION);
-  const PRESETS   = { morning: generateTimes(9,0,13,0,SLOT_DURATION), full: ALL_TIMES, none: [] };
+  const ALL_TIMES = generateTimes(8, 0, 23, 40, SLOT_DURATION);
+  const PRESETS   = { morning: generateTimes(8,0,12,0,SLOT_DURATION), full: ALL_TIMES, none: [] };
   const SVC       = { knippen:'Knippen', baard:'Baard + contouren', fade:'Fade' };
 
   document.getElementById('shop-name').textContent = SHOP_NAME;
@@ -414,8 +424,8 @@
   function changeDuration(val) {
     currentDuration = parseInt(val);
     // Regenerate ALL_TIMES with new duration
-    window.ALL_TIMES_CURRENT = generateTimes(9, 0, 18, 0, currentDuration);
-    window.PRESETS_CURRENT = { morning: generateTimes(9,0,13,0,currentDuration), full: window.ALL_TIMES_CURRENT, none: [] };
+    window.ALL_TIMES_CURRENT = generateTimes(8, 0, 23, 40, currentDuration);
+    window.PRESETS_CURRENT = { morning: generateTimes(8,0,12,0,currentDuration), full: window.ALL_TIMES_CURRENT, none: [] };
     loadAdminDay();
   }
 
