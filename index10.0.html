@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>The Barbershop</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0e0e0e;
+      --surface: #1a1a1a;
+      --border: #2e2e2e;
+      --text: #f0ede8;
+      --muted: #777;
+      --accent: #d4a85a;
+      --accent-dim: rgba(212,168,90,0.13);
+      --danger: #e07070;
+      --success: #5ecba0;
+      --radius: 10px;
+      --font: 'Georgia', serif;
+      --mono: 'Courier New', monospace;
+    }
+
+    body { background: var(--bg); color: var(--text); font-family: var(--font); min-height: 100vh; }
+
+    /* ── TOP BAR ── */
+    .admin-link-wrap { width: 100%; max-width: 520px; text-align: center; margin-top: 14px; }
+    .admin-btn { font-size: 0.68rem; font-family: var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); background: none; border: none; padding: 4px 8px; cursor: pointer; transition: color 0.15s; text-decoration: underline; text-underline-offset: 3px; }
+    .admin-btn:hover { color: var(--accent); }
+
+    /* ── CUSTOMER VIEW ── */
+    #customer-view { display: flex; flex-direction: column; align-items: center; padding: 1.5rem 1rem 4rem; }
+    header { text-align: center; margin-bottom: 2.2rem; }
+    header .shop-name { font-size: 2rem; letter-spacing: 0.08em; color: var(--accent); font-style: italic; }
+    header p { font-size: 0.82rem; color: var(--muted); margin-top: 4px; font-family: var(--mono); letter-spacing: 0.05em; text-transform: uppercase; }
+
+    .card { width: 100%; max-width: 520px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.75rem; }
+    .field { margin-bottom: 1.1rem; }
+    .field label { display: block; font-size: 0.7rem; font-family: var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .field input, .field select { width: 100%; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.95rem; font-family: var(--font); transition: border-color 0.15s; appearance: none; }
+    .field input:focus, .field select:focus { outline: none; border-color: var(--accent); }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 400px) { .row2 { grid-template-columns: 1fr; } }
+
+    .slot-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(74px, 1fr)); gap: 8px; margin-top: 6px; }
+    .slot { padding: 9px 4px; text-align: center; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: var(--mono); color: var(--muted); transition: all 0.15s; user-select: none; }
+    .slot:hover { border-color: var(--accent); color: var(--text); }
+    .slot.selected { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); }
+    .slot.taken { opacity: 0.28; cursor: not-allowed; text-decoration: line-through; pointer-events: none; }
+
+    .submit-btn { width: 100%; padding: 13px; margin-top: 6px; background: var(--accent); border: none; border-radius: 6px; color: #111; font-size: 0.9rem; font-weight: bold; font-family: var(--mono); letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: opacity 0.15s; }
+    .submit-btn:hover { opacity: 0.88; }
+    .submit-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .success { display: none; text-align: center; padding: 1rem 0 0.5rem; }
+    .success .checkmark { font-size: 2.2rem; color: var(--accent); margin-bottom: 10px; }
+    .success p { font-size: 0.9rem; line-height: 1.7; color: var(--muted); }
+    .success strong { color: var(--text); }
+    .reset-btn { display: inline-block; margin-top: 1.25rem; padding: 9px 20px; border: 1px solid var(--border); border-radius: 6px; background: transparent; color: var(--muted); font-size: 0.8rem; font-family: var(--mono); cursor: pointer; transition: all 0.15s; }
+    .reset-btn:hover { color: var(--text); border-color: var(--muted); }
+    .error-msg { font-size: 0.78rem; color: var(--danger); font-family: var(--mono); margin-top: 8px; display: none; }
+    .hint-text { font-size: 0.78rem; color: var(--muted); font-family: var(--mono); padding: 8px 0; }
+
+    /* ── ADMIN OVERLAY ── */
+    #admin-overlay { display: none; position: fixed; inset: 0; background: var(--bg); z-index: 100; overflow-y: auto; }
+
+    /* Login */
+    #login-screen { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem 1rem; }
+    .login-title { font-size: 1.5rem; color: var(--accent); font-style: italic; letter-spacing: 0.06em; margin-bottom: 4px; }
+    .login-sub { font-size: 0.7rem; font-family: var(--mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); margin-bottom: 2rem; }
+    .login-card { width: 100%; max-width: 320px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.75rem; }
+    .login-field { margin-bottom: 1rem; }
+    .login-field label { display: block; font-size: 0.7rem; font-family: var(--mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+    .login-field input { width: 100%; padding: 10px 12px; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; color: var(--text); font-size: 0.95rem; font-family: var(--font); transition: border-color 0.15s; }
+    .login-field input:focus { outline: none; border-color: var(--accent); }
+    .login-btn { width: 100%; padding: 11px; background: var(--accent); border: none; border-radius: 6px; color: #111; font-size: 0.82rem; font-family: var(--mono); font-weight: bold; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer; transition: opacity 0.15s; }
+    .login-btn:hover { opacity: 0.85; }
+    .login-error { font-size: 0.75rem; color: var(--danger); font-family: var(--mono); text-align: center; margin-top: 10px; display: none; }
+
+    /* Admin panel */
+    #admin-panel { display: none; }
+    .admin-topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--bg); z-index: 10; }
+    .admin-brand { font-size: 1.1rem; color: var(--accent); font-style: italic; letter-spacing: 0.06em; }
+    .close-btn { font-size: 0.72rem; font-family: var(--mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 5px; padding: 6px 12px; cursor: pointer; transition: all 0.15s; }
+    .close-btn:hover { color: var(--text); border-color: var(--muted); }
+    .admin-body { max-width: 820px; margin: 0 auto; padding: 1.75rem 1rem 4rem; }
+
+    /* Date nav */
+    .date-nav-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 12px; }
+    .date-nav { display: flex; align-items: center; gap: 10px; }
+    .nav-btn { width: 36px; height: 36px; background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
+    .nav-btn:hover { color: var(--text); border-color: var(--muted); }
+    .date-label { font-size: 0.88rem; font-family: var(--mono); min-width: 200px; text-align: center; text-transform: capitalize; }
+    .date-picker-input { background: var(--surface); border: 1px solid var(--border); border-radius: 6px; color: var(--accent); font-family: var(--mono); font-size: 0.82rem; padding: 7px 10px; cursor: pointer; }
+    .date-picker-input:focus { outline: none; border-color: var(--accent); }
+
+    /* Stats */
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.5rem; }
+    .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem; text-align: center; }
+    .stat-num { font-size: 1.7rem; font-family: var(--mono); color: var(--accent); }
+    .stat-lbl { font-size: 0.65rem; font-family: var(--mono); color: var(--muted); text-transform: uppercase; letter-spacing: 0.1em; margin-top: 4px; }
+
+    /* Admin cards */
+    .admin-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 1.5rem; margin-bottom: 1.25rem; }
+    .admin-card-title { font-size: 0.67rem; font-family: var(--mono); letter-spacing: 0.13em; text-transform: uppercase; color: var(--muted); margin-bottom: 1.1rem; }
+
+    /* Agenda */
+    .agenda-row { display: grid; grid-template-columns: 52px 1fr; min-height: 54px; border-bottom: 1px solid #1e1e1e; }
+    .agenda-row:last-child { border-bottom: none; }
+    .agenda-time { font-size: 0.72rem; font-family: var(--mono); color: #555; padding: 12px 10px 0 0; text-align: right; }
+    .agenda-cell { border-left: 1px solid #1e1e1e; padding: 7px 10px; display: flex; align-items: center; }
+    .agenda-cell.booked { background: rgba(212,168,90,0.05); border-left: 2px solid var(--accent); }
+    .booking-block { background: var(--accent-dim); border: 1px solid rgba(212,168,90,0.3); border-radius: 6px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; }
+    .bb-info { flex: 1; min-width: 0; }
+    .bb-name { font-size: 0.9rem; font-weight: bold; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .bb-meta { font-size: 0.72rem; color: var(--muted); font-family: var(--mono); margin-top: 3px; }
+    .bb-del { background: none; border: none; color: #444; cursor: pointer; font-size: 0.85rem; padding: 4px 7px; border-radius: 4px; transition: color 0.15s; flex-shrink: 0; }
+    .bb-del:hover { color: var(--danger); }
+    .open-indicator { font-size: 0.72rem; font-family: var(--mono); color: #333; padding: 2px 0; }
+    .empty-agenda { text-align: center; padding: 2rem; color: var(--muted); font-size: 0.82rem; font-family: var(--mono); }
+
+    /* Slot manager */
+    .slot-mgr-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); gap: 8px; }
+    .toggle-slot { padding: 10px 4px; text-align: center; border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-size: 0.82rem; font-family: var(--mono); color: var(--muted); transition: all 0.15s; user-select: none; }
+    .toggle-slot:hover:not(.booked-slot) { border-color: var(--accent); color: var(--text); }
+    .toggle-slot.open { border-color: var(--accent); background: var(--accent-dim); color: var(--accent); font-weight: bold; }
+    .toggle-slot.booked-slot { border-color: rgba(212,168,90,0.2); color: rgba(212,168,90,0.4); cursor: not-allowed; font-style: italic; }
+    .slot-legend { display: flex; gap: 16px; margin-bottom: 12px; }
+    .legend-item { display: flex; align-items: center; gap: 6px; font-size: 0.7rem; font-family: var(--mono); color: var(--muted); }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+    .btn-row { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; align-items: center; }
+    .save-btn { padding: 10px 22px; background: var(--accent); border: none; border-radius: 6px; color: #111; font-size: 0.8rem; font-family: var(--mono); font-weight: bold; letter-spacing: 0.06em; text-transform: uppercase; cursor: pointer; transition: opacity 0.15s; }
+    .save-btn:hover { opacity: 0.85; }
+    .preset-btn { padding: 9px 14px; background: transparent; border: 1px solid var(--border); border-radius: 6px; color: var(--muted); font-size: 0.75rem; font-family: var(--mono); cursor: pointer; transition: all 0.15s; }
+    .preset-btn:hover { color: var(--text); border-color: var(--muted); }
+    .save-confirm { font-size: 0.75rem; color: var(--success); font-family: var(--mono); display: none; }
+  </style>
+</head>
+<body>
+
+<!-- ═══ KLANT PAGINA ═══ -->
+<div id="customer-view">
+  <header>
+    <div class="shop-name" id="shop-name">The Barbershop</div>
+    <p>Online reserveren</p>
+  </header>
+
+  <div class="card">
+    <div id="booking-form">
+      <div class="row2">
+        <div class="field"><label>Voornaam</label><input type="text" id="fname" placeholder="Omar" autocomplete="given-name" /></div>
+        <div class="field"><label>Achternaam</label><input type="text" id="lname" placeholder="El Amrani" autocomplete="family-name" /></div>
+      </div>
+      <div class="field"><label>Telefoonnummer</label><input type="tel" id="phone" placeholder="+31 6 12 34 56 78" autocomplete="tel" /></div>
+      <div class="field">
+        <label>Type knipbeurt</label>
+        <select id="service">
+          <option value="">— maak een keuze —</option>
+          <option value="knippen">Knippen</option>
+          <option value="baard">Baard trimmen + contouren</option>
+          <option value="fade">Fade</option>
+        </select>
+      </div>
+      <div class="field"><label>Datum</label><input type="date" id="bdate" /></div>
+      <div class="field">
+        <label>Tijdstip</label>
+        <div id="slot-container"><div class="hint-text">Kies eerst een datum</div></div>
+        <input type="hidden" id="chosen-slot" />
+      </div>
+      <div class="error-msg" id="error-msg"></div>
+      <button class="submit-btn" id="submit-btn" onclick="submitBooking()">Bevestig reservering</button>
+    </div>
+    <div class="success" id="success-box">
+      <div class="checkmark">✓</div>
+      <p id="success-text"></p>
+      <button class="reset-btn" onclick="resetForm()">Nieuwe reservering maken</button>
+    </div>
+  </div>
+  <div class="admin-link-wrap"><button class="admin-btn" onclick="openAdmin()">Admin</button></div>
+</div>
+
+<!-- ═══ ADMIN OVERLAY ═══ -->
+<div id="admin-overlay">
+
+  <!-- Login -->
+  <div id="login-screen">
+    <div class="login-title" id="login-title">The Barbershop</div>
+    <div class="login-sub">Admin — inloggen</div>
+    <div class="login-card">
+      <div class="login-field">
+        <label>Wachtwoord</label>
+        <input type="password" id="pw-input" placeholder="••••••••" onkeydown="if(event.key==='Enter') doLogin()" />
+      </div>
+      <button class="login-btn" onclick="doLogin()">Inloggen</button>
+      <div class="login-error" id="login-error">Onjuist wachtwoord</div>
+    </div>
+  </div>
+
+  <!-- Admin paneel -->
+  <div id="admin-panel">
+    <div class="admin-topbar">
+      <span class="admin-brand" id="admin-brand">The Barbershop — Admin</span>
+      <button class="close-btn" onclick="closeAdmin()">✕ Sluiten</button>
+    </div>
+
+    <div class="admin-body">
+
+      <!-- Datum navigatie -->
+      <div class="date-nav-row">
+        <div class="date-nav">
+          <button class="nav-btn" onclick="changeAdminDate(-1)">←</button>
+          <span class="date-label" id="admin-date-label"></span>
+          <button class="nav-btn" onclick="changeAdminDate(1)">→</button>
+        </div>
+        <input type="date" class="date-picker-input" id="admin-date-picker" onchange="jumpToDate(this.value)" />
+      </div>
+
+      <!-- Stats -->
+      <div class="stats-row">
+        <div class="stat-card"><div class="stat-num" id="s-total">—</div><div class="stat-lbl">Afspraken</div></div>
+        <div class="stat-card"><div class="stat-num" id="s-free">—</div><div class="stat-lbl">Vrij</div></div>
+        <div class="stat-card"><div class="stat-num" id="s-next">—</div><div class="stat-lbl">Volgende</div></div>
+      </div>
+
+      <!-- Agenda -->
+      <div class="admin-card">
+        <div class="admin-card-title">Agenda overzicht</div>
+        <div id="agenda-container"><div class="empty-agenda">Laden...</div></div>
+      </div>
+
+      <!-- Slot beheer -->
+      <div class="admin-card">
+        <div class="admin-card-title">Tijdsloten instellen</div>
+
+        <div class="slot-config-row">
+          <div class="slot-config-field">
+            <label>Duur per afspraak</label>
+            <select id="slot-duration" class="slot-config-input" onchange="changeDuration(this.value)">
+              <option value="20">20 minuten</option>
+              <option value="30">30 minuten</option>
+              <option value="45">45 minuten</option>
+              <option value="60">60 minuten</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="time-range-row">
+          <div class="slot-config-field">
+            <label>Van</label>
+            <input type="time" id="range-from" class="slot-config-input" value="09:00" step="1200" />
+          </div>
+          <div class="slot-config-field">
+            <label>Tot</label>
+            <input type="time" id="range-to" class="slot-config-input" value="17:00" step="1200" />
+          </div>
+          <div class="slot-config-field slot-range-btn-wrap">
+            <label>&nbsp;</label>
+            <button class="range-add-btn" onclick="addTimeRange()">Zet open</button>
+          </div>
+        </div>
+
+        <div class="slot-legend">
+          <div class="legend-item"><div class="legend-dot" style="background:var(--accent);opacity:0.5;"></div>Open</div>
+          <div class="legend-item"><div class="legend-dot" style="border:1px solid var(--border);"></div>Gesloten</div>
+          <div class="legend-item"><div class="legend-dot" style="border:1px solid rgba(212,168,90,0.3);"></div>Geboekt</div>
+        </div>
+        <div class="slot-mgr-grid" id="slot-manager"></div>
+        <div class="btn-row">
+          <button class="save-btn" onclick="saveSlots()">Opslaan</button>
+          <button class="preset-btn" onclick="applyPreset('morning')">Ochtend</button>
+          <button class="preset-btn" onclick="applyPreset('full')">Volledige dag</button>
+          <button class="preset-btn" onclick="applyPreset('none')">Vrij</button>
+          <span class="save-confirm" id="save-confirm">✓ Opgeslagen</span>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script>
+  // ══════════════════════════════════════════
+  // CONFIG — pas dit aan
+  // ══════════════════════════════════════════
+  const SUPABASE_URL      = 'https://pustkooxxjdmyoanieli.supabase.co';
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB1c3Rrb294eGpkbXlvYW5pZWxpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzU3ODY1MDQsImV4cCI6MjA5MTM2MjUwNH0.UlHiL5a8WUX7wVkd4_d2MN5tpk91nPxLXOsOVsCCsAo';
+  const SHOP_NAME         = 'Barber Jack';
+  const ADMIN_PASSWORD    = 'kapper123';
+  // ══════════════════════════════════════════
+
+  // Genereer tijden met configureerbare interval
+  const SLOT_DURATION = 20; // minuten per slot
+  function generateTimes(startH, startM, endH, endM, interval) {
+    const times = []; let h = startH, m = startM;
+    while (h < endH || (h === endH && m < endM)) {
+      times.push(h.toString().padStart(2,'0') + ':' + m.toString().padStart(2,'0'));
+      m += interval; if (m >= 60) { h += Math.floor(m/60); m = m % 60; }
+    }
+    return times;
+  }
+  const ALL_TIMES = generateTimes(9, 0, 18, 0, SLOT_DURATION);
+  const PRESETS   = { morning: generateTimes(9,0,13,0,SLOT_DURATION), full: ALL_TIMES, none: [] };
+  const SVC       = { knippen:'Knippen', baard:'Baard + contouren', fade:'Fade' };
+
+  document.getElementById('shop-name').textContent = SHOP_NAME;
+  document.getElementById('login-title').textContent = SHOP_NAME;
+  document.getElementById('admin-brand').textContent = SHOP_NAME + ' — Admin';
+  document.title = SHOP_NAME;
+  const sb = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  function toKey(d) { return d.toISOString().slice(0,10); }
+
+  // ─── KLANT ────────────────────────────────
+  const today = new Date(); today.setHours(0,0,0,0);
+  const bdateEl = document.getElementById('bdate');
+  bdateEl.min = toKey(today); bdateEl.value = toKey(today);
+  bdateEl.addEventListener('change', loadCustomerSlots);
+  loadCustomerSlots();
+
+  async function loadCustomerSlots() {
+    const dk = bdateEl.value;
+    const c  = document.getElementById('slot-container');
+    document.getElementById('chosen-slot').value = '';
+    if (!dk) { c.innerHTML = '<div class="hint-text">Kies eerst een datum</div>'; return; }
+    c.innerHTML = '<div class="hint-text">Laden...</div>';
+    const [sR, bR] = await Promise.all([
+      sb.from('slots').select('time').eq('date',dk).order('time'),
+      sb.from('bookings').select('time').eq('date',dk)
+    ]);
+    const open  = (sR.data||[]).map(s=>s.time.slice(0,5));
+    const taken = (bR.data||[]).map(b=>b.time.slice(0,5));
+    if (!open.length) { c.innerHTML = '<div class="hint-text">Geen beschikbare tijden op deze dag</div>'; return; }
+    const grid = document.createElement('div'); grid.className = 'slot-grid';
+    open.forEach(t => {
+      const el = document.createElement('div');
+      el.className = 'slot' + (taken.includes(t) ? ' taken' : '');
+      el.textContent = t;
+      if (!taken.includes(t)) el.onclick = () => {
+        document.querySelectorAll('.slot').forEach(s=>s.classList.remove('selected'));
+        el.classList.add('selected');
+        document.getElementById('chosen-slot').value = t;
+      };
+      grid.appendChild(el);
+    });
+    c.innerHTML = ''; c.appendChild(grid);
+  }
+
+  async function submitBooking() {
+    const fname   = document.getElementById('fname').value.trim();
+    const lname   = document.getElementById('lname').value.trim();
+    const phone   = document.getElementById('phone').value.trim();
+    const service = document.getElementById('service').value;
+    const dk      = bdateEl.value;
+    const slot    = document.getElementById('chosen-slot').value;
+    const errEl   = document.getElementById('error-msg');
+    errEl.style.display = 'none';
+    if (!fname||!lname||!phone||!service||!dk||!slot) {
+      errEl.textContent = 'Vul alle velden in en kies een tijdstip.'; errEl.style.display='block'; return;
+    }
+    const btn = document.getElementById('submit-btn');
+    btn.disabled = true; btn.textContent = 'Even geduld...';
+    const { error } = await sb.from('bookings').insert([{ date:dk, time:slot, first_name:fname, last_name:lname, phone, service }]);
+    if (error) {
+      errEl.textContent = error.code==='23505' ? 'Dit tijdstip is zojuist geboekt. Kies een ander tijdstip.' : 'Er ging iets mis. Probeer opnieuw.';
+      errEl.style.display = 'block'; btn.disabled=false; btn.textContent='Bevestig reservering'; return;
+    }
+    const dateStr = new Date(dk+'T12:00:00').toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'});
+    document.getElementById('success-text').innerHTML =
+      `<strong>${fname} ${lname}</strong>, je bent geboekt op<br><strong>${dateStr}</strong> om <strong>${slot}</strong>.<br>Knipbeurt: <strong>${SVC[service]||service}</strong><br><br>Tot dan! ✂`;
+    document.getElementById('booking-form').style.display = 'none';
+    document.getElementById('success-box').style.display = 'block';
+  }
+
+  function resetForm() {
+    ['fname','lname','phone'].forEach(id=>document.getElementById(id).value='');
+    document.getElementById('service').value='';
+    document.getElementById('chosen-slot').value='';
+    document.getElementById('booking-form').style.display='block';
+    document.getElementById('success-box').style.display='none';
+    const btn=document.getElementById('submit-btn'); btn.disabled=false; btn.textContent='Bevestig reservering';
+    loadCustomerSlots();
+  }
+
+  // ─── ADMIN LOGIN ──────────────────────────
+  function openAdmin() {
+    document.getElementById('admin-overlay').style.display = 'block';
+    // Altijd inlogscherm tonen — alleen overslaan binnen dezelfde sessie (tabblad)
+    const authValid = sessionStorage.getItem('barber_auth_session') === '1';
+    if (authValid) { showAdminPanel(); }
+    else {
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('admin-panel').style.display = 'none';
+      setTimeout(()=>document.getElementById('pw-input').focus(), 60);
+    }
+  }
+
+  function closeAdmin() { document.getElementById('admin-overlay').style.display = 'none'; }
+
+  function doLogin() {
+    if (document.getElementById('pw-input').value === ADMIN_PASSWORD) {
+      sessionStorage.setItem('barber_auth_session', '1');
+      document.getElementById('pw-input').value = '';
+      showAdminPanel();
+    } else {
+      const err = document.getElementById('login-error');
+      err.style.display = 'block';
+      document.getElementById('pw-input').value = '';
+      setTimeout(()=>err.style.display='none', 3000);
+    }
+  }
+
+  let currentDuration = 20;
+
+  function changeDuration(val) {
+    currentDuration = parseInt(val);
+    // Regenerate ALL_TIMES with new duration
+    window.ALL_TIMES_CURRENT = generateTimes(9, 0, 18, 0, currentDuration);
+    window.PRESETS_CURRENT = { morning: generateTimes(9,0,13,0,currentDuration), full: window.ALL_TIMES_CURRENT, none: [] };
+    loadAdminDay();
+  }
+
+  function showAdminPanel() {
+    document.getElementById('login-screen').style.display = 'none';
+    document.getElementById('admin-panel').style.display = 'block';
+    // Set initial values
+    window.ALL_TIMES_CURRENT = ALL_TIMES;
+    window.PRESETS_CURRENT = PRESETS;
+    syncDatePicker();
+    loadAdminDay();
+  }
+
+  // ─── ADMIN DATA ───────────────────────────
+  let adminDate = new Date(); adminDate.setHours(0,0,0,0);
+
+  function syncDatePicker() {
+    const picker = document.getElementById('admin-date-picker');
+    if (picker) picker.value = toKey(adminDate);
+  }
+
+  function jumpToDate(val) {
+    if (!val) return;
+    adminDate = new Date(val + 'T12:00:00');
+    adminDate.setHours(0,0,0,0);
+    syncDatePicker();
+    loadAdminDay();
+  }
+
+  function changeAdminDate(delta) {
+    adminDate.setDate(adminDate.getDate()+delta);
+    syncDatePicker();
+    loadAdminDay();
+  }
+
+  async function loadAdminDay() {
+    const dk = toKey(adminDate);
+    document.getElementById('admin-date-label').textContent =
+      adminDate.toLocaleDateString('nl-NL',{weekday:'long',day:'numeric',month:'long'});
+    document.getElementById('agenda-container').innerHTML = '<div class="empty-agenda">Laden...</div>';
+    document.getElementById('slot-manager').innerHTML = '';
+
+    const [sR, bR] = await Promise.all([
+      sb.from('slots').select('time').eq('date',dk).order('time'),
+      sb.from('bookings').select('*').eq('date',dk).order('time')
+    ]);
+
+    const openTimes   = (sR.data||[]).map(s=>s.time.slice(0,5));
+    const bookings    = (bR.data||[]).map(b=>({...b,time:b.time.slice(0,5)}));
+    const bookedTimes = bookings.map(b=>b.time);
+
+    renderStats(bookings, openTimes);
+    renderAgenda(openTimes, bookings);
+    renderSlotManager(openTimes, bookedTimes);
+  }
+
+  function renderStats(bookings, openTimes) {
+    const now = new Date(); const isToday = toKey(adminDate)===toKey(now);
+    const nowStr = now.getHours().toString().padStart(2,'0')+':'+now.getMinutes().toString().padStart(2,'0');
+    const upcoming = isToday ? bookings.filter(b=>b.time>=nowStr) : bookings;
+    document.getElementById('s-total').textContent = bookings.length;
+    document.getElementById('s-free').textContent  = Math.max(0, openTimes.length-bookings.length);
+    document.getElementById('s-next').textContent  = upcoming.length ? upcoming[0].time : '—';
+  }
+
+  function renderAgenda(openTimes, bookings) {
+    const container = document.getElementById('agenda-container');
+    const bookingMap = {};
+    bookings.forEach(b => bookingMap[b.time] = b);
+    const allTimes = [...new Set([...openTimes,...bookings.map(b=>b.time)])].sort();
+
+    if (!allTimes.length) {
+      container.innerHTML = '<div class="empty-agenda">Geen slots of afspraken op deze dag.<br>Stel hieronder tijden in om te beginnen.</div>';
+      return;
+    }
+
+    const wrap = document.createElement('div');
+    allTimes.forEach(t => {
+      const booking = bookingMap[t];
+      const row = document.createElement('div'); row.className = 'agenda-row';
+      const timeCol = document.createElement('div'); timeCol.className = 'agenda-time'; timeCol.textContent = t;
+      const cell = document.createElement('div'); cell.className = 'agenda-cell' + (booking ? ' booked' : '');
+
+      if (booking) {
+        cell.innerHTML = `
+          <div class="booking-block">
+            <div class="bb-info">
+              <div class="bb-name">${booking.first_name} ${booking.last_name}</div>
+              <div class="bb-meta">${booking.phone}&nbsp;&nbsp;·&nbsp;&nbsp;${SVC[booking.service]||booking.service}</div>
+            </div>
+            <button class="bb-del" onclick="deleteBooking('${booking.id}')" title="Verwijder">✕</button>
+          </div>`;
+      } else {
+        cell.innerHTML = `<div class="open-indicator">beschikbaar</div>`;
+      }
+      row.appendChild(timeCol); row.appendChild(cell); wrap.appendChild(row);
+    });
+    container.innerHTML = ''; container.appendChild(wrap);
+  }
+
+  function renderSlotManager(openTimes, bookedTimes) {
+    const mgr = document.getElementById('slot-manager'); mgr.innerHTML = '';
+    const times = window.ALL_TIMES_CURRENT || ALL_TIMES;
+    times.forEach(t => {
+      const el = document.createElement('div');
+      const isBooked = bookedTimes.includes(t);
+      el.className = 'toggle-slot' + (isBooked ? ' booked-slot' : (openTimes.includes(t) ? ' open' : ''));
+      el.textContent = t; el.dataset.time = t;
+      if (!isBooked) el.onclick = () => el.classList.toggle('open');
+      else el.title = 'Al geboekt — kan niet wijzigen';
+      mgr.appendChild(el);
+    });
+  }
+
+  function applyPreset(name) {
+    const presets = window.PRESETS_CURRENT || PRESETS;
+    const times = presets[name] || [];
+    document.querySelectorAll('#slot-manager .toggle-slot:not(.booked-slot)').forEach(el =>
+      el.classList.toggle('open', times.includes(el.dataset.time))
+    );
+  }
+
+  function addTimeRange() {
+    const fromVal = document.getElementById('range-from').value;
+    const toVal   = document.getElementById('range-to').value;
+    if (!fromVal || !toVal) return;
+
+    const [fh, fm] = fromVal.split(':').map(Number);
+    const [th, tm] = toVal.split(':').map(Number);
+    const fromMins = fh * 60 + fm;
+    const toMins   = th * 60 + tm;
+
+    if (fromMins >= toMins) {
+      alert('Eindtijd moet na begintijd liggen.'); return;
+    }
+
+    document.querySelectorAll('#slot-manager .toggle-slot:not(.booked-slot)').forEach(el => {
+      const [h, m] = el.dataset.time.split(':').map(Number);
+      const slotMins = h * 60 + m;
+      if (slotMins >= fromMins && slotMins < toMins) {
+        el.classList.add('open');
+      }
+    });
+  }
+
+  async function saveSlots() {
+    const dk   = toKey(adminDate);
+    const open = [...document.querySelectorAll('#slot-manager .toggle-slot.open')].map(el=>el.dataset.time);
+    const conf = document.getElementById('save-confirm');
+    const btn  = document.querySelector('.save-btn');
+
+    btn.disabled = true;
+    btn.textContent = 'Opslaan...';
+    conf.style.display = 'none';
+
+    const { error: delError } = await sb.from('slots').delete().eq('date', dk);
+    if (delError) {
+      conf.textContent = '✕ Fout bij opslaan: ' + delError.message;
+      conf.style.color = 'var(--danger)';
+      conf.style.display = 'inline';
+      btn.disabled = false; btn.textContent = 'Opslaan';
+      return;
+    }
+
+    if (open.length) {
+      const { error: insError } = await sb.from('slots').insert(open.map(t=>({date:dk, time:t})));
+      if (insError) {
+        conf.textContent = '✕ Fout bij opslaan: ' + insError.message;
+        conf.style.color = 'var(--danger)';
+        conf.style.display = 'inline';
+        btn.disabled = false; btn.textContent = 'Opslaan';
+        return;
+      }
+    }
+
+    conf.textContent = '✓ Opgeslagen — zichtbaar voor klanten';
+    conf.style.color = 'var(--success)';
+    conf.style.display = 'inline';
+    btn.disabled = false; btn.textContent = 'Opslaan';
+    setTimeout(()=>{ conf.style.display='none'; conf.textContent='✓ Opgeslagen'; conf.style.color='var(--success)'; }, 4000);
+    loadAdminDay();
+  }
+
+  async function deleteBooking(id) {
+    if (!confirm('Afspraak verwijderen?')) return;
+    const { error } = await sb.from('bookings').delete().eq('id',id);
+    if (!error) loadAdminDay();
+  }
+</script>
+</body>
+</html>
